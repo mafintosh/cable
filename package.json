@@ -1,0 +1,9 @@
+{
+ "name":"cable",
+ "version":"0.1.0",
+ "dependencies": {},
+ "repository": "git://github.com/mafintosh/cable",
+ "description":"Cable is JSON requests over TCP with pipelining",
+ "keywords": ["request", "json", "tcp", "pipeline"],
+ "author": "Mathias Buus Madsen <mathiasbuus@gmail.com>"
+}
