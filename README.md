@@ -15,7 +15,7 @@ You can start a server:
 ``` js
 var cable = require('cable');
 
-var server = cable.listen(8080);
+var server = cable.listen(8080); // if you omit 8080 here you'll get a random port
 
 server.on('request', function(message, callback) {
 	// lets just echo
@@ -33,6 +33,8 @@ cable('localhost:8080', {hello:'world'}, function(err, message) {
 	console.log(message);
 });
 ```
+
+To get an idea of the speed of cable you can try and run the [benchmark](https://github.com/mafintosh/cable/blob/master/bench.js)
 
 ## Pipelining
 
