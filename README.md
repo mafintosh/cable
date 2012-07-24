@@ -22,7 +22,7 @@ server.on('request', function(message, callback) {
 	callback(null, {echo:message});
 });
 server.ready(function(addr) {
-	console.log('concact me here: '+addr);
+	console.log('contact me here: '+addr);
 });
 ```
 
