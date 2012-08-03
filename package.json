@@ -1,6 +1,6 @@
 {
  "name":"cable",
- "version":"0.1.1",
+ "version":"0.1.2",
  "dependencies": {},
  "repository": "git://github.com/mafintosh/cable",
  "description":"Cable is JSON requests over TCP with pipelining",

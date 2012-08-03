@@ -1,19 +1,49 @@
 var net     = require('net');
-var server  = require('./server');
+var cluster = require('cluster');
 var parser  = require('./parser');
 var noop    = function() {};
 
 var TIMEOUT = 15*1000;
 
 var pools = {};
-var onsocket = function(socket, fn) {
-	socket.setTimeout(TIMEOUT, function() {
-		socket.destroy();
+
+var network = function() {
+	var faces = require('os').networkInterfaces();
+
+	for (var i in faces) {
+		for (var j = 0; j < faces[i].length; j++) {
+			if (faces[i][j].family === 'IPv4' && !faces[i][j].internal) {
+				return faces[i][j].address;
+			}
+		}
+	}
+	return '127.0.0.1';
+};
+var listen = function(port) {
+	var that = net.createServer();
+	var bind;
+
+	that.setMaxListeners(0);
+	that.once('listening', function() {
+		that.emit('bind', bind = network()+':'+that.address().port);
 	});
-	socket.on('end', function() {
-		socket.destroy();
-	});
-	socket.pipe(parser(fn));
+	that.ready = function(fn) {
+		if (bind) return fn(bind);
+		that.once('bind', fn);
+	};
+
+	if (port || !cluster.isWorker) {
+		that.listen(port);
+	} else {
+		var env = process.env;
+
+		process.env = {};
+		cluster.isWorker = false;
+		that.listen(port);
+		process.env = env;
+		cluster.isWorker = true;		
+	}
+	return that;
 };
 var get = function(host) {
 	if (pools[host]) return pools[host];
@@ -47,6 +77,15 @@ var get = function(host) {
 	});
 	return that;
 };
+var onsocket = function(socket, fn) {
+	socket.setTimeout(TIMEOUT, function() {
+		socket.destroy();
+	});
+	socket.on('end', function() {
+		socket.destroy();
+	});
+	socket.pipe(parser(fn));
+};
 var request = function(host, message, callback) {
 	var pool = get(host);
 
@@ -58,7 +97,7 @@ var request = function(host, message, callback) {
 request.listen = function(port, onbind) {
 	if (typeof port === 'function') return request.listen(0, port);
 
-	var that = server(port);
+	var that = listen(port);
 
 	that.on('connection', function(socket) {
 		onsocket(socket, function(message) { // Protocol: [ID,MSG,ERR?]
