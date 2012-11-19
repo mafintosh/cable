@@ -14,9 +14,12 @@ var listen = function(port) {
 	var bind;
 
 	that.setMaxListeners(0);
+
 	that.once('listening', function() {
-		that.emit('bind', bind = address()+':'+that.address().port);
+		bind = address()+':'+that.address().port
+		that.emit('bind', bind);
 	});
+
 	that.ready = function(fn) {
 		if (bind) return fn(bind);
 		that.once('bind', fn);
@@ -26,7 +29,6 @@ var listen = function(port) {
 		that.listen(port);
 	} else {
 		var env = process.env;
-
 		process.env = {};
 		cluster.isWorker = false;
 		that.listen(port);
@@ -42,7 +44,6 @@ var get = function(host) {
 	var r = pools[host] = pipe(socket);
 
 	r.on('idle', function() {
-		console.log('idle')
 		socket.end();
 	});
 
@@ -52,6 +53,7 @@ var get = function(host) {
 
 	return r;
 };
+
 var pipe = function(socket) {
 	var r = rs();
 
@@ -59,16 +61,16 @@ var pipe = function(socket) {
 		socket.destroy();
 	});
 
+	socket.on('error', noop);
 	socket.on('end', function() {
 		socket.end();
 	});
-
-	socket.on('error', noop);
 
 	socket.pipe(r).pipe(socket);
 
 	return r;
 };
+
 var request = function(host, message, callback) {
 	get(host).request(message, callback);
 };
@@ -83,9 +85,7 @@ request.listen = function(port, onbind) {
 		pipe(socket).on('request', onrequest);
 	});
 
-	if (onbind) {
-		that.once('bind', onbind);
-	}
+	if (onbind) that.once('bind', onbind);
 
 	return that;
 };
