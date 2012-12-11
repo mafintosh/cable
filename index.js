@@ -1,6 +1,6 @@
 var net = require('net');
 var cluster = require('cluster');
-var rs = require('request-stream');
+var cs = require('conversation-stream');
 var address = require('network-address');
 
 var noop = function() {};
@@ -56,7 +56,7 @@ var get = function(host) {
 };
 
 var pipe = function(socket) {
-	var r = rs();
+	var c = cs();
 
 	socket.setTimeout(TIMEOUT, function() {
 		socket.destroy();
@@ -67,13 +67,13 @@ var pipe = function(socket) {
 		socket.end();
 	});
 
-	socket.pipe(r).pipe(socket);
+	socket.pipe(c).pipe(socket);
 
-	return r;
+	return c;
 };
 
 var request = function(host, message, callback) {
-	get(host).request(message, callback);
+	get(host).send(message, callback);
 };
 
 request.listen = function(port, onbind) {
@@ -83,7 +83,7 @@ request.listen = function(port, onbind) {
 	var onrequest = that.emit.bind(that, 'request');
 
 	that.on('connection', function(socket) {
-		pipe(socket).on('request', onrequest);
+		pipe(socket).on('message', onrequest);
 	});
 
 	if (onbind) that.once('bind', onbind);
