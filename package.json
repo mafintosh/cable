@@ -5,7 +5,7 @@
     "fifo": "~0.2.0"
   },
   "repository": "git://github.com/mafintosh/cable.git",
-  "description": "Cable is length delimited JSON requests over a stream with pipeline support",
+  "description": "Cable is incredibly fast binary encoded JSON requests over a stream in Node.js with pipelining support",
   "keywords": [
     "request",
     "json",
