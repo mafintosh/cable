@@ -5,7 +5,7 @@ var fifo = require('fifo');
 var noop = function() {};
 
 var encode = function(dir, message) {
-	var str = JSON.stringify(message);
+	var str = JSON.stringify(message === undefined ? null : message);
 	var len = Buffer.byteLength(str);
 	var buf = new Buffer(5+len);
 
@@ -83,6 +83,10 @@ Cable.prototype._write = function(buf, enc, cb) {
 			case 3:
 			(this._stack.shift() || noop)(new Error(message));
 			break;
+			case 4:
+			this.emit('ping');
+			this._respond(null, 'pong');
+			break;
 		}
 	}
 
@@ -91,6 +95,11 @@ Cable.prototype._write = function(buf, enc, cb) {
 
 Cable.prototype._read = function() {
 	// do nothing...
+};
+
+Cable.prototype.ping = function(cb) {
+	this.push(encode(4, 'ping'));
+	this._stack.push(cb || noop);
 };
 
 Cable.prototype.send = function(message, cb) {
