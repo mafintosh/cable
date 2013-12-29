@@ -1,9 +1,16 @@
 {
- "name":"cable",
- "version":"0.1.5",
- "dependencies": {"conversation-stream":"0.1.x", "network-address":"0.0.x"},
- "repository": "git://github.com/mafintosh/cable",
- "description":"Cable is JSON requests over TCP with pipelining",
- "keywords": ["request", "json", "tcp", "pipeline", "server"],
- "author": "Mathias Buus Madsen <mathiasbuus@gmail.com>"
+  "name": "cable",
+  "version": "0.1.5",
+  "dependencies": {
+    "fifo": "~0.2.0"
+  },
+  "repository": "git://github.com/mafintosh/cable.git",
+  "description": "Cable is length delimited JSON requests over a stream with pipeline support",
+  "keywords": [
+    "request",
+    "json",
+    "pipeline",
+    "server"
+  ],
+  "author": "Mathias Buus Madsen <mathiasbuus@gmail.com>"
 }
