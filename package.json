@@ -12,5 +12,8 @@
     "pipeline",
     "server"
   ],
-  "author": "Mathias Buus Madsen <mathiasbuus@gmail.com>"
+  "author": "Mathias Buus Madsen <mathiasbuus@gmail.com>",
+  "scripts": {
+  	"test": "node test.js"
+  }
 }
