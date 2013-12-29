@@ -62,6 +62,8 @@ When you do a request `c.send(message, [cb])` cable sends the message and pushes
 
 * `c.destroy()` destroy the stream. calls all missing callbacks with an error
 
+* `c.ping(cb)` send a ping.
+
 ## License
 
 MIT
