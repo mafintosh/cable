@@ -21,27 +21,15 @@ var Cable = function(opts) {
 
 	stream.Duplex.call(this, opts);
 
-	this._stack = fifo();
+	this._incoming = fifo();
+	this._outgoing = fifo();
 	this._buffer = new stream.PassThrough();
 	this._length = 5;
 	this._message = false;
 	this._direction = 0;
 	this._destroyed = false;
 
-	var self = this;
-
-	var respond = function(err, message) {
-		if (err) self.push(encode(3, err.message));
-		else self.push(encode(2, message));
-	};
-
-	var finish = function() {
-		while (self._stack.length) self._stack.shift()(new Error('stream has ended'));
-	};
-
-	this._respond = respond;
-
-	this.on('finish', finish);
+	this.on('finish', this._onfinish);
 };
 
 util.inherits(Cable, stream.Duplex);
@@ -75,17 +63,18 @@ Cable.prototype._write = function(buf, enc, cb) {
 			this.emit('message', message, noop);
 			break;
 			case 1:
-			this.emit('message', message, this._respond);
+			this.emit('message', message, this._callback());
 			break;
 			case 2:
-			(this._stack.shift() || noop)(null, message);
+			(this._incoming.shift() || noop)(null, message);
 			break;
 			case 3:
-			(this._stack.shift() || noop)(new Error(message));
+			(this._incoming.shift() || noop)(new Error(message));
 			break;
 			case 4:
 			this.emit('ping');
-			this._respond(null, 'pong');
+			this._outgoing.push(encode(2, 'pong'));
+			this._drain();
 			break;
 		}
 	}
@@ -93,19 +82,15 @@ Cable.prototype._write = function(buf, enc, cb) {
 	cb();
 };
 
-Cable.prototype._read = function() {
-	// do nothing...
-};
-
 Cable.prototype.ping = function(cb) {
 	this.push(encode(4, 'ping'));
-	this._stack.push(cb || noop);
+	this._incoming.push(cb || noop);
 };
 
 Cable.prototype.send = function(message, cb) {
 	if (cb) {
 		this.push(encode(1, message));
-		this._stack.push(cb);
+		this._incoming.push(cb);
 	} else {
 		this.push(encode(0, message));
 	}
@@ -116,6 +101,28 @@ Cable.prototype.destroy = function() {
 	this._destroyed = true;
 	this.emit('close');
 	this.end();
+};
+
+Cable.prototype._read = function() {
+	// do nothing...
+};
+
+Cable.prototype._callback = function() {
+	var self = this;
+	var node = this._outgoing.push(null);
+
+	return function(err, message) {
+		self._outgoing.set(node, err ? encode(3, err.message) : encode(2, message));
+		self._drain();
+	};
+};
+
+Cable.prototype._drain = function() {
+	while (this._outgoing.first()) this.push(this._outgoing.shift());
+};
+
+Cable.prototype._onfinish = function() {
+	while (this._incoming.length) this._incoming.shift()(new Error('stream has ended'));
 };
 
 module.exports = Cable;
