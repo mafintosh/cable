@@ -1,94 +1,112 @@
-var net = require('net');
-var cluster = require('cluster');
-var cs = require('conversation-stream');
-var address = require('network-address');
+var stream = require('stream');
+var util = require('util');
+var fifo = require('fifo');
 
 var noop = function() {};
 
-var TIMEOUT = 15*1000;
+var encode = function(dir, message) {
+	var str = JSON.stringify(message);
+	var len = Buffer.byteLength(str);
+	var buf = new Buffer(5+len);
 
-var pools = {};
+	buf.writeUInt32LE(len, 0);
+	buf[4] = dir;
+	buf.write(str, 5);
 
-var listen = function(port) {
-	var that = net.createServer();
-	var bind;
+	return buf;
+};
 
-	that.setMaxListeners(0);
+var Cable = function(opts) {
+	if (!(this instanceof Cable)) return new Cable(opts);
 
-	that.once('listening', function() {
-		bind = address()+':'+that.address().port
-		that.emit('bind', bind);
-	});
+	stream.Duplex.call(this, opts);
 
-	that.ready = function(fn) {
-		if (bind) return fn(bind);
-		that.once('bind', fn);
+	this._stack = fifo();
+	this._buffer = new stream.PassThrough();
+	this._length = 5;
+	this._message = false;
+	this._direction = 0;
+	this._destroyed = false;
+
+	var self = this;
+
+	var respond = function(err, message) {
+		if (err) self.push(encode(3, err.message));
+		else self.push(encode(2, message));
 	};
 
-	if (port || !cluster.isWorker) {
-		that.listen(port);
-	} else {
-		var env = process.env;
-		process.env = {};
-		cluster.isWorker = false;
-		that.listen(port);
-		process.env = env;
-		cluster.isWorker = true;
+	var finish = function() {
+		while (self._stack.length) self._stack.shift()(new Error('stream has ended'));
+	};
+
+	this._respond = respond;
+
+	this.on('finish', finish);
+};
+
+util.inherits(Cable, stream.Duplex);
+
+Cable.prototype._write = function(buf, enc, cb) {
+	this._buffer.write(buf);
+
+	var data;
+
+	while (data = this._buffer.read(this._length)) {
+		if (!this._message) {
+			this._direction = data[4];
+			this._message = true;
+			this._length = data.readUInt32LE(0);
+			continue;
+		}
+
+		this._message = false;
+		this._length = 5;
+
+		var message;
+
+		try {
+			message = JSON.parse(data.toString());
+		} catch (err) {
+			continue;
+		}
+
+		switch (this._direction) {
+			case 0:
+			this.emit('message', message, noop);
+			break;
+			case 1:
+			this.emit('message', message, this._respond);
+			break;
+			case 2:
+			(this._stack.shift() || noop)(null, message);
+			break;
+			case 3:
+			(this._stack.shift() || noop)(new Error(message));
+			break;
+		}
 	}
-	return that;
+
+	cb();
 };
 
-var get = function(host) {
-	if (pools[host]) return pools[host];
-
-	var socket = net.connect(parseInt(host.split(':')[1], 10), host.split(':')[0]);
-	var r = pools[host] = pipe(socket);
-
-	r.on('idle', function() {
-		socket.end();
-	});
-
-	r.on('end', function() {
-		delete pools[host];
-	});
-
-	return r;
+Cable.prototype._read = function() {
+	// do nothing...
 };
 
-var pipe = function(socket) {
-	var c = cs();
-
-	socket.setTimeout(TIMEOUT, function() {
-		socket.destroy();
-	});
-
-	socket.on('error', noop);
-	socket.on('end', function() {
-		socket.end();
-	});
-
-	socket.pipe(c).pipe(socket);
-
-	return c;
+Cable.prototype.send = function(message, cb) {
+	if (cb) {
+		this.push(encode(1, message));
+		this._stack.push(cb);
+	} else {
+		this.push(encode(0, message));
+	}
 };
 
-var request = function(host, message, callback) {
-	get(host).send(message, callback);
+Cable.prototype.destroy = function() {
+	if (this._destroyed) return;
+	this._destroyed = true;
+	this.emit('close');
+	this.end();
 };
 
-request.listen = function(port, onbind) {
-	if (typeof port === 'function') return request.listen(0, port);
-
-	var that = listen(port);
-	var onrequest = that.emit.bind(that, 'request');
-
-	that.on('connection', function(socket) {
-		pipe(socket).on('message', onrequest);
-	});
-
-	if (onbind) that.once('bind', onbind);
-
-	return that;
-};
-
-module.exports = request;
+module.exports = Cable;
