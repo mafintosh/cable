@@ -1,17 +1,17 @@
 var stream = require('stream');
 var util = require('util');
-var fifo = require('fifo');
 
 var noop = function() {};
 
-var encode = function(dir, message) {
+var encode = function(type, id, message) {
 	var str = JSON.stringify(message === undefined ? null : message);
 	var len = Buffer.byteLength(str);
-	var buf = new Buffer(5+len);
+	var buf = new Buffer(7+len);
 
-	buf.writeUInt32LE(len, 0);
-	buf[4] = dir;
-	buf.write(str, 5);
+	buf[0] = type;
+	buf.writeUInt16LE(id, 1);
+	buf.writeUInt32LE(len, 3);
+	buf.write(str, 7);
 
 	return buf;
 };
@@ -21,12 +21,16 @@ var Cable = function(opts) {
 
 	stream.Duplex.call(this, opts);
 
-	this._incoming = fifo();
-	this._outgoing = fifo();
+	this._stack = [];
+	this._freelist = [];
+	this._pointer = 0;
+
 	this._buffer = new stream.PassThrough();
-	this._length = 5;
 	this._message = false;
-	this._direction = 0;
+	this._length = 7;
+	this._type = 0;
+	this._id = 0;
+
 	this._destroyed = false;
 
 	this.on('finish', this._onfinish);
@@ -41,14 +45,15 @@ Cable.prototype._write = function(buf, enc, cb) {
 
 	while (data = this._buffer.read(this._length)) {
 		if (!this._message) {
-			this._direction = data[4];
+			this._type = data[0];
+			this._id = data.readUInt16LE(1);
+			this._length = data.readUInt32LE(3);
 			this._message = true;
-			this._length = data.readUInt32LE(0);
 			continue;
 		}
 
 		this._message = false;
-		this._length = 5;
+		this._length = 7;
 
 		var message;
 
@@ -58,23 +63,22 @@ Cable.prototype._write = function(buf, enc, cb) {
 			continue;
 		}
 
-		switch (this._direction) {
+		switch (this._type) {
 			case 0:
 			this.emit('message', message, noop);
 			break;
 			case 1:
-			this.emit('message', message, this._callback());
+			this.emit('message', message, this._callback(this._id));
 			break;
 			case 2:
-			(this._incoming.shift() || noop)(null, message);
+			this._free(this._id)(null, message);
 			break;
 			case 3:
-			(this._incoming.shift() || noop)(new Error(message));
+			this._free(this._id)(new Error(message));
 			break;
 			case 4:
 			this.emit('ping');
-			this._outgoing.push(encode(2, 'pong'));
-			this._drain();
+			this.push(encode(2, this._id, 'pong'));
 			break;
 		}
 	}
@@ -83,17 +87,12 @@ Cable.prototype._write = function(buf, enc, cb) {
 };
 
 Cable.prototype.ping = function(cb) {
-	this.push(encode(4, 'ping'));
-	this._incoming.push(cb || noop);
+	this._send(4, 'ping', cb || noop);
 };
 
 Cable.prototype.send = function(message, cb) {
-	if (cb) {
-		this.push(encode(1, message));
-		this._incoming.push(cb);
-	} else {
-		this.push(encode(0, message));
-	}
+	if (cb) return this._send(1, message, cb);
+	this.push(encode(0, 0, message));
 };
 
 Cable.prototype.destroy = function() {
@@ -107,22 +106,41 @@ Cable.prototype._read = function() {
 	// do nothing...
 };
 
-Cable.prototype._callback = function() {
-	var self = this;
-	var node = this._outgoing.push(null);
+Cable.prototype._send = function(type, message, cb) {
+	var id = this._freelist.length ? this._freelist.pop() : this._pointer++;
+	if (id > 65535) return cb(new Error('stack overflow'));
 
+	// help v8 and do not trigger oob
+	if (id === this._stack.length) this._stack.push(cb);
+	else this._stack[id] = cb;
+
+	this.push(encode(type, id, message));
+};
+
+Cable.prototype._free = function(id) {
+	var cb = this._stack[id];
+	this._stack[id] = null;
+	this._freelist.push(id);
+	return cb || noop;
+};
+
+Cable.prototype._callback = function(id) {
+	var self = this;
 	return function(err, message) {
-		self._outgoing.set(node, err ? encode(3, err.message) : encode(2, message));
-		self._drain();
+		self.push(err ? encode(3, id, err.message) : encode(2, id, message));
 	};
 };
 
-Cable.prototype._drain = function() {
-	while (this._outgoing.first()) this.push(this._outgoing.shift());
-};
-
 Cable.prototype._onfinish = function() {
-	while (this._incoming.length) this._incoming.shift()(new Error('stream has ended'));
+	var missing = this._pointer - this._freelist.length;
+	if (!missing) return;
+
+	for (var i = 0; i < this._pointer; i++) {
+		if (this._stack[i]) {
+			this._stack[i](new Error('stream has ended'));
+			if (!--missing) return;
+		}
+	}
 };
 
 module.exports = Cable;
