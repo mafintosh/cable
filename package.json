@@ -1,9 +1,7 @@
 {
   "name": "cable",
   "version": "1.0.2",
-  "dependencies": {
-    "fifo": "~0.2.0"
-  },
+  "dependencies": {},
   "repository": "git://github.com/mafintosh/cable.git",
   "description": "Cable is incredibly fast binary encoded JSON requests over a stream in Node.js with pipelining support",
   "keywords": [
