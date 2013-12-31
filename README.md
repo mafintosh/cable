@@ -1,6 +1,6 @@
 # Cable
 
-Cable is incredibly fast binary encoded JSON requests over a stream in Node.js with pipelining support.
+Cable is a fast and simple request/response protocol over a binary stream in Node.js with pipelining support.
 It's available through npm:
 
 	npm install cable
@@ -8,7 +8,7 @@ It's available through npm:
 ## Usage
 
 Cable is especially useful for fast communication between processes and servers. All JSON messages
-are sent with a 5 byte header that descripes the type and length of a message. This allows for extremely
+are sent with a 7 byte header that descripes the type, id and length of a message. This allows for extremely
 easy and fast parsing.
 
 Usage is simple. Start a server:
