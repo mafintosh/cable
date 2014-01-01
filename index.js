@@ -149,7 +149,8 @@ Cable.prototype._encodecb = function(message, cb) {
 };
 
 Cable.prototype._encode = function(type, id, message) {
-	if (!Buffer.isBuffer(message)) message = new Buffer(this._encoding === 'json' ? JSON.stringify(message === undefined ? null : message) : message);
+	if (message === undefined || message === null || message === '') message = empty;
+	if (!Buffer.isBuffer(message)) message = new Buffer(this._encoding === 'json' ? JSON.stringify(message) : message);
 
 	var header = alloc();
 	header[0] = type;
