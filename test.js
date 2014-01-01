@@ -4,7 +4,7 @@ var cable = require('./index');
 var messages = [1,2,3,4,5];
 var recv = 0;
 var sent = 0;
-var c = cable();
+var c = cable({encoding:'json'});
 
 c.on('message', function(message, cb) {
 	assert(message === messages[recv++]);
