@@ -79,9 +79,9 @@ When you do a request `c.send(message, [cb])` cable sends the message and rememb
 All messages are prefixed with the following header and looks like this
 
 ```
- ----------------------------------------------------------------------------------
+ --------------------------------------------------------------------------------
 |  1 byte type  |  2 byte message id  |  4 byte uint message length  |  message  |
- ----------------------------------------------------------------------------------
+ --------------------------------------------------------------------------------
 ```
 
 The type byte can be:
