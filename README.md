@@ -81,9 +81,9 @@ When you do a request `c.send(message, [cb])` cable sends the message and rememb
 All messages are prefixed with the following header and looks like this
 
 ```
- --------------------------------------------------------------------------------
-|  1 byte type  |  2 byte message id  |  4 byte uint message length  |  message  |
- --------------------------------------------------------------------------------
+ ----------------------------------------------------------------------------------
+|  1 byte type  |  2 byte message id  |  4 byte UIntLE message length  |  message  |
+ ----------------------------------------------------------------------------------
 ```
 
 The type byte can be:
@@ -92,6 +92,7 @@ The type byte can be:
 * `1` this message expects a response with the same id
 * `2` this is a response to the message with same id
 * `3` this message is an error response to the message with the same id (message body is a utf-8 encoding error message)
+* `4` this is a ping message. send a empty response with the same id immediately
 
 Message ids should be safe to reuse after a response has been received.
 
