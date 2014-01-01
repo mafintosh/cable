@@ -1,6 +1,6 @@
 # Cable
 
-Cable is a fast and simple binary request/response protocol over a binary stream in Node.js with pipelining support.
+Cable is a fast and simple binary request/response protocol stream for Node.js. It features an easy to use api, pipelining and optional encodings.
 It's available through npm:
 
 	npm install cable
@@ -80,7 +80,7 @@ All messages are prefixed with the following header and looks like this
 
 ```
  ----------------------------------------------------------------------------------
-|  1 byte type  |  16 byte message id  |  32 byte uint message length  |  message  |
+|  1 byte type  |  2 byte message id  |  4 byte uint message length  |  message  |
  ----------------------------------------------------------------------------------
 ```
 
