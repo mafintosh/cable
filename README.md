@@ -5,6 +5,8 @@ It's available through npm:
 
 	npm install cable
 
+[![build status](https://secure.travis-ci.org/mafintosh/cable.png)](http://travis-ci.org/mafintosh/cable)
+
 ## Usage
 
 Cable is especially useful for fast communication between processes and servers. All messages
