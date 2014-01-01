@@ -12,6 +12,9 @@
   ],
   "author": "Mathias Buus Madsen <mathiasbuus@gmail.com>",
   "scripts": {
-  	"test": "node test.js"
+    "test": "tap test/*.js"
+  },
+  "devDependencies": {
+    "tap": "~0.4.6"
   }
 }
