@@ -41,12 +41,12 @@ var Cable = function(opts) {
 util.inherits(Cable, stream.Duplex);
 
 Cable.prototype.send = function(message, cb) {
-	if (cb) this._encodecb(message, cb);
+	if (cb) this._encodecb(1, message, cb);
 	else this._encode(0, 0, message);
 };
 
 Cable.prototype.ping = function(cb) {
-	this._encodecb(empty, cb || noop);
+	this._encodecb(4, empty, cb || noop);
 };
 
 Cable.prototype.destroy = function() {
@@ -74,12 +74,6 @@ Cable.prototype._write = function(data, enc, cb) {
 		this._length = 7;
 		this._header = true;
 
-		if (!buf.length && this._type === 1) {
-			this.emit('ping');
-			this._encode(2, this._id, empty);
-			continue;
-		}
-
 		switch (this._type) {
 			case 0:
 			this.emit('message', this._decode(buf), noop);
@@ -93,6 +87,10 @@ Cable.prototype._write = function(data, enc, cb) {
 			case 3:
 			this._decodecb(this._id)(new Error(buf.toString()));
 			break;
+			case 4:
+			this.emit('ping');
+			this._encode(2, this._id, empty);
+			break;
 		}
 	}
 
@@ -102,7 +100,7 @@ Cable.prototype._write = function(data, enc, cb) {
 Cable.prototype._callback = function(id) {
 	var self = this;
 	return function(err, message) {
-		if (err) return self._encode(3, id, new Buffer(err.message));
+		if (err) return self._encode(3, id, new Buffer(err.message || 'unknown error'));
 		else self._encode(2, id, message);
 	};
 };
@@ -112,12 +110,10 @@ Cable.prototype._read = function() {
 };
 
 Cable.prototype._decode = function(buf) {
-	if (!buf.length) return null;
-
 	switch (this._encoding) {
 		case 'json':
 		try {
-			return JSON.parse(buf.toString());
+			return buf.length ? JSON.parse(buf.toString()) : undefined;
 		} catch (err) {
 			return null;
 		}
@@ -137,7 +133,7 @@ Cable.prototype._decodecb = function(id) {
 	return cb || noop;
 };
 
-Cable.prototype._encodecb = function(message, cb) {
+Cable.prototype._encodecb = function(type, message, cb) {
 	var id = this._freelist.length ? this._freelist.pop() : this._top++;
 	if (id > 65535) return cb(new Error('stack overflow'));
 
@@ -145,22 +141,31 @@ Cable.prototype._encodecb = function(message, cb) {
 	if (id === this._map.length) this._map.push(cb);
 	else this._map[id] = cb;
 
-	this._encode(1, id, message);
+	this._encode(type, id, message);
 };
 
 Cable.prototype._encode = function(type, id, message) {
-	if (message === undefined || message === null || message === '') message = empty;
-	if (!Buffer.isBuffer(message)) message = new Buffer(this._encoding === 'json' ? JSON.stringify(message) : message);
+	var buf;
+
+	if (Buffer.isBuffer(message)) {
+		buf = message;
+	} else if (this._encoding === 'json') {
+		buf = new Buffer(JSON.stringify(message === undefined ? null : message));
+	} else if (!message) {
+		buf = empty;
+	} else {
+		buf = new Buffer(message);
+	}
 
 	var header = alloc();
 	header[0] = type;
 	header.writeUInt16LE(id, 1);
-	header.writeUInt32LE(message.length, 3);
+	header.writeUInt32LE(buf.length, 3);
 
 	if (this._ended) return;
 
 	this.push(header);
-	if (message.length) this.push(message);
+	if (buf.length) this.push(buf);
 };
 
 Cable.prototype._onfinish = function() {
