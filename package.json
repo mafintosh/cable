@@ -1,6 +1,6 @@
 {
   "name": "cable",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "dependencies": {},
   "repository": "git://github.com/mafintosh/cable.git",
   "description": "Cable is a fast and simple binary request/response protocol stream for Node.js",
