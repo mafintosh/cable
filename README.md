@@ -10,7 +10,7 @@ It's available through npm:
 ## Usage
 
 Cable is especially useful for fast communication between processes and servers. All messages
-are sent with a 7 byte header that descripes the id and length of a message. This allows for extremely
+are sent with a 7 byte header that describes the id and length of a message. This allows for extremely
 easy and fast parsing.
 
 Usage is simple. Start a server:
